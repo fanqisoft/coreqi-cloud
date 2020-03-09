@@ -10,6 +10,7 @@ spring:
     url: jdbc:mysql://localhost:3306/db2019?useUnicode=true&characterEncoding=UTF-8&zeroDateTimeBehavior=convertToNull&serverTimezone=Asia/Shanghai&useSSL=false
     username: root
     password: fanqisoft
+
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   type-aliases-package: cn.coreqi.springcloud.entities

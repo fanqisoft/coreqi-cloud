@@ -1,4 +1,4 @@
-package cn.coreqi.springcloud.emtities;
+package cn.coreqi.springcloud.entities;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

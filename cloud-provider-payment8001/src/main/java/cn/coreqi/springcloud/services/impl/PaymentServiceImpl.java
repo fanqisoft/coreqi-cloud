@@ -1,7 +1,7 @@
 package cn.coreqi.springcloud.services.impl;
 
 import cn.coreqi.springcloud.dao.PaymentDao;
-import cn.coreqi.springcloud.emtities.Payment;
+import cn.coreqi.springcloud.entities.Payment;
 import cn.coreqi.springcloud.services.PaymentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

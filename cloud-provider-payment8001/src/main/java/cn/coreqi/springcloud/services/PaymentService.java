@@ -1,6 +1,6 @@
 package cn.coreqi.springcloud.services;
 
-import cn.coreqi.springcloud.emtities.Payment;
+import cn.coreqi.springcloud.entities.Payment;
 
 public interface PaymentService {
     int create(Payment payment);
