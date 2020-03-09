@@ -1,7 +1,7 @@
 package cn.coreqi.springcloud.controller;
 
 import cn.coreqi.springcloud.core.CommonResult;
-import cn.coreqi.springcloud.emtities.Payment;
+import cn.coreqi.springcloud.entities.Payment;
 import cn.coreqi.springcloud.services.PaymentService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
