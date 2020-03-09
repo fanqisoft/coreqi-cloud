@@ -3,7 +3,7 @@
 <mapper namespace="cn.coreqi.springcloud.dao.PaymentDao">
 
     <insert id="create" parameterType="cn.coreqi.springcloud.emtities.Payment" useGeneratedKeys="true" keyProperty="id">
-        insert into payment(serial) values (#{serial});
+        insert into payment(serial) values(#{serial});
     </insert>
 
     <resultMap id="BaseResultMap" type="cn.coreqi.springcloud.emtities.Payment">
