@@ -24,3 +24,6 @@ eureka:
     service-url:
       #defaultZone: http://localhost:7001/eureka （单机版Eureka）
       defaultZone: http://eureka7001.com:7001/eureka,http://eureka7002.com:7002/eureka #向Eureka集群分别注册
+  instance:
+    instance-id: payment8001  #在Eureka注册中心显示的主机名称
+    prefer-ip-address: true #是否在Eureka注册中心显示ip地址
