@@ -1,0 +1,13 @@
+server:
+  port: 8006  #Consul服务端口号
+
+spring:
+  application:
+    name: consul-provider-payment
+  cloud:
+    consul: #consul注册中心相关配置
+      host: localhost
+      port: 8500
+      discovery:
+        hostname: coreqi
+        service-name: ${spring.application.name}
