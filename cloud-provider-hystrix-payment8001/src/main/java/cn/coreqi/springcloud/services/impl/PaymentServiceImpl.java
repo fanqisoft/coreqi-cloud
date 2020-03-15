@@ -21,17 +21,17 @@ public class PaymentServiceImpl implements PaymentService {
 
     //fallbackMethod,如果当前方法出现问题则调用
     @HystrixCommand(fallbackMethod = "paymentInfo_TimeOutHandler",commandProperties = {
-            @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds",value = "3000")
+            @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds",value = "5000")
 
     })
     public String paymentInfo_Timeout(Integer id){
         try {
-            TimeUnit.SECONDS.sleep(5);
+            TimeUnit.SECONDS.sleep(3);
         }catch (InterruptedException e) {
             e.printStackTrace();
         }
         return "线程池： " + Thread.currentThread().getName() + " PaymentInfo_Timeout, id: " + id + "\t" + "...(*￣０￣)ノ" +
-                " 耗时5秒钟";
+                " 耗时3秒钟";
     }
 
     public String paymentInfo_TimeOutHandler(Integer id){
