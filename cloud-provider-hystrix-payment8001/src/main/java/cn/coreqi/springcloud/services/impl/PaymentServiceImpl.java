@@ -1,6 +1,8 @@
 package cn.coreqi.springcloud.services.impl;
 
 import cn.coreqi.springcloud.services.PaymentService;
+import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
+import com.netflix.hystrix.contrib.javanica.annotation.HystrixProperty;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.TimeUnit;
@@ -17,13 +19,22 @@ public class PaymentServiceImpl implements PaymentService {
         return "线程池： " + Thread.currentThread().getName() + " PaymentInfo_OK,id: " + id + "\t" + "...(*￣０￣)ノ";
     }
 
+    //fallbackMethod,如果当前方法出现问题则调用
+    @HystrixCommand(fallbackMethod = "paymentInfo_TimeOutHandler",commandProperties = {
+            @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds",value = "3000")
+
+    })
     public String paymentInfo_Timeout(Integer id){
         try {
-            TimeUnit.SECONDS.sleep(3);
+            TimeUnit.SECONDS.sleep(5);
         }catch (InterruptedException e) {
             e.printStackTrace();
         }
-        return "线程池： " + Thread.currentThread().getName() + " PaymentInfo_Timeout,id: " + id + "\t" + "...(*￣０￣)ノ" +
-                " 耗时3秒钟";
+        return "线程池： " + Thread.currentThread().getName() + " PaymentInfo_Timeout, id: " + id + "\t" + "...(*￣０￣)ノ" +
+                " 耗时5秒钟";
+    }
+
+    public String paymentInfo_TimeOutHandler(Integer id){
+        return "线程池： " + Thread.currentThread().getName() + " paymentInfo_TimeOutHandler, id: " + id + "\t" + "(°ー°〃)";
     }
 }
