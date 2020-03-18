@@ -16,3 +16,10 @@ eureka:
     service-url:  #服务注册到Eureka地址
       #defaultZone: http://localhost:7001/eureka （单机版Eureka）
       defaultZone: http://eureka7001.com:7001/eureka,http://eureka7002.com:7002/eureka #向Eureka集群分别注册
+
+#暴露监控端口
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
