@@ -1,6 +1,7 @@
 package cn.coreqi.springcloud.controller;
 
 import cn.coreqi.springcloud.services.PaymentHystrixService;
+import com.netflix.hystrix.contrib.javanica.annotation.DefaultProperties;
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixProperty;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,7 @@ import javax.annotation.Resource;
 
 @RestController
 @Slf4j
+@DefaultProperties(defaultFallback = "payment_Global_FallbackMethod")
 public class OrderHystrixController {
     @Resource
     private PaymentHystrixService paymentHystrixService;
@@ -22,14 +24,20 @@ public class OrderHystrixController {
     }
 
     @GetMapping("/consumer/payment/hystrix/timeout/{id}")
-    @HystrixCommand(fallbackMethod = "paymentTimeOutFallbackMethod",commandProperties = {
-            @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds",value = "1500")
-    })
+    //@HystrixCommand(fallbackMethod = "paymentTimeOutFallbackMethod",commandProperties = {
+    //        @HystrixProperty(name = "execution.isolation.thread.timeoutInMilliseconds",value = "1500")
+    //})
+    @HystrixCommand //为当前服务开启降级但没有指定降级方法则会使用全局服务降级方法
     public String paymentInfo_Timeout(@PathVariable("id") Integer id){
         return paymentHystrixService.paymentInfo_Timeout(id);
     }
 
     public String paymentTimeOutFallbackMethod(@PathVariable("id") Integer id){
         return "我是消费者80，对方支付系统繁忙请10秒钟后再试或者自己运行出错请检查自己，(⊙o⊙)？";
+    }
+
+    //下面是全局fallback方法
+    public String payment_Global_FallbackMethod(){
+        return "Global异常处理信息，请稍后再试，(°ー°〃)";
     }
 }
