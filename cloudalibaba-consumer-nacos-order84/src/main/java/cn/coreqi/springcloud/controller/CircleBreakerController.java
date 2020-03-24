@@ -2,6 +2,7 @@ package cn.coreqi.springcloud.controller;
 
 import cn.coreqi.springcloud.core.CommonResult;
 import cn.coreqi.springcloud.entities.Payment;
+import cn.coreqi.springcloud.services.PaymentService;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import lombok.extern.slf4j.Slf4j;
@@ -46,5 +47,15 @@ public class CircleBreakerController {
     public CommonResult blockHandler(@PathVariable Long id, BlockException e){
         Payment payment = new Payment(id,"null");
         return new CommonResult<>(445,"blockHandler-sentinel限流，无此流水：blockHandler " + e.getMessage(),payment);
+    }
+
+
+    //========OpenFeign
+    @Resource
+    private PaymentService paymentService;
+
+    @GetMapping("/consumer/paymentSQL/{id}")
+    public CommonResult<Payment> paymentSQL(@PathVariable("id") Long id){
+        return paymentService.paymentSQL(id);
     }
 }

@@ -57,6 +57,15 @@
   <!--子模块继承当前父工程之后，提供作用：锁定版本+子模块不用写groupId和version-->
   <dependencyManagement>
     <dependencies>
+      <!--Hoxton.SR3中修正了之前openfeign接口的拼写错误，因此2.2.2.RELEASE 和Sentinel有冲突，退回到2.2.0.RELEASE-->
+      <!--关于此问题详见 https://github.com/alibaba/Sentinel/issues/1345 -->
+      <dependency>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-openfeign-dependencies</artifactId>
+        <version>2.2.0.RELEASE</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <!-- Spring Boot 2.2.5.RELEASE -->
       <dependency>
         <groupId>org.springframework.boot</groupId>
