@@ -17,6 +17,11 @@
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
         </dependency>
+        <dependency>
+            <groupId>cn.coreqi</groupId>
+            <artifactId>cloud-api-commons</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <!--Spring Cloud Alibaba Sentinel-Datasource-Nacos  后续做持久化用到-->
         <dependency>
             <groupId>com.alibaba.csp</groupId>
