@@ -20,15 +20,29 @@ public class FlowLimitController {
         return  "------testB";
     }
 
-    @GetMapping("/testD")
-    public String testD(){
+    @GetMapping("/testC")
+    public String testC(){
         //暂停几秒钟线程
         try {
             TimeUnit.SECONDS.sleep(1);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        log.info("testD 测试RT");
+        log.info("testC 测试RT");
+        return "-----testC";
+    }
+
+    @GetMapping("/testD")
+    public String testD(){
+        log.info("testD 异常比例");
+        int age = 10/0;
         return "-----testD";
+    }
+
+    @GetMapping("/testE")
+    public String testE(){
+        log.info("testE 测试异常数");
+        int age = 10/0;
+        return "-----testE 测试异常数";
     }
 }
