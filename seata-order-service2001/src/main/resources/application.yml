@@ -1,0 +1,135 @@
+server:
+  port: 2001
+
+seata:
+  enabled: true
+  application-id: seata-order-service
+  tx-service-group: fsp_tx_group  #自定义事务组名称需要与seata-server中对应
+  enable-auto-data-source-proxy: true
+  use-jdk-proxy: false
+  client:
+    rm:
+      async-commit-buffer-limit: 1000
+      report-retry-count: 5
+      table-meta-check-enable: false
+      report-success-enable: false
+      lock:
+        retry-interval: 10
+        retry-times: 30
+        retry-policy-branch-rollback-on-conflict: true
+    tm:
+      commit-retry-count: 5
+      rollback-retry-count: 5
+    undo:
+      data-validation: true
+      log-serialization: jackson
+      log-table: undo_log
+    log:
+      exceptionRate: 100
+  service:
+    vgroup-mapping:
+      fsp_tx_group: default #fsp_tx_group 代表程序所使用的事务分组
+    grouplist:
+      default: 127.0.0.1:8091
+    enable-degrade: false
+    disable-global-transaction: false
+  transport:
+    shutdown:
+      wait: 3
+    thread-factory:
+      boss-thread-prefix: NettyBoss
+      worker-thread-prefix: NettyServerNIOWorker
+      server-executor-thread-prefix: NettyServerBizHandler
+      share-boss-worker: false
+      client-selector-thread-prefix: NettyClientSelector
+      client-selector-thread-size: 1
+      client-worker-thread-prefix: NettyClientWorkerThread
+      worker-thread-size: default
+      boss-thread-size: 1
+    type: TCP
+    server: NIO
+    heartbeat: true
+    serialization: seata
+    compressor: none
+    enable-client-batch-send-request: true
+  config:
+    type: file
+    consul:
+      server-addr: 127.0.0.1:8500
+    apollo:
+      apollo-meta: http://192.168.1.204:8801
+      app-id: seata-server
+      namespace: application
+    etcd3:
+      server-addr: http://localhost:2379
+    nacos:
+      namespace:
+      serverAddr: localhost:8848
+      group: SEATA_GROUP
+    zk:
+      server-addr: 127.0.0.1:2181
+      session-timeout: 6000
+      connect-timeout: 2000
+      username: ""
+      password: ""
+  registry:
+    type: nacos
+    consul:
+      cluster: default
+      server-addr: 127.0.0.1:8500
+    etcd3:
+      cluster: default
+      serverAddr: http://localhost:2379
+    eureka:
+      application: default
+      weight: 1
+      service-url: http://localhost:8761/eureka
+    nacos:
+      cluster: default
+      server-addr: localhost:8848
+      namespace:
+    redis:
+      server-addr: localhost:6379
+      db: 0
+      password:
+      cluster: default
+      timeout: 0
+    sofa:
+      server-addr: 127.0.0.1:9603
+      application: default
+      region: DEFAULT_ZONE
+      datacenter: DefaultDataCenter
+      cluster: default
+      group: SEATA_GROUP
+      addressWaitTime: 3000
+    zk:
+      cluster: default
+      server-addr: 127.0.0.1:2181
+      session-timeout: 6000
+      connect-timeout: 2000
+      username: ""
+      password: ""
+spring:
+  application:
+    name: seata-order-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    type: com.alibaba.druid.pool.DruidDataSource
+    url: jdbc:mysql://localhost:3306/seata_order?useUnicode=true&characterEncoding=UTF-8&zeroDateTimeBehavior=convertToNull&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: fanqisoft
+
+feign:
+  hystrix:
+    enabled: true
+logging:
+  level:
+    io:
+      seata: info
+
+mybatis:
+  mapperLocations: classpath:mapper/*.xml
