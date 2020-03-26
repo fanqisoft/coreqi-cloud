@@ -3294,7 +3294,600 @@ java -jar sentinel-dashboard-1.7.1.jar
 
 ​			2.异常比例
 
+​				异常比例：当资源的每秒请求量 >=5，并且每秒异常总数占通过量的比值超过阈值（DegradeRule中的count）之后，资源进入降级状态，即在接下来的时间窗口（DegradeRule中的timeWindow，以s为单位）之内，对这个方法的调用都会自动的返回。异常比率的阈值范围是[0.0，1.0]，代表0% - 100%。
 
+​				QPS >= 5 && 异常比例（秒级统计）通过阈值	=>	触发降级（断路器打开）	=>	时间窗口结束	=>	关闭降级
+
+​			3.异常数
+
+​				异常数：当资源近1分钟的异常数目超过阈值之后会进行熔断。注意由于统计时间窗口是分钟级别的，若timeWindow小于60s，则结束熔断状态后仍可能再进入熔断状态。
+
+​				★时间窗口一定要大于等于60秒。
+
+​				异常数（分钟统计）超过阈值 	=>	触发降级（断路器打开）	=>	时间窗口结束	=>	关闭降级
+
+​	6.热点Key限流
+
+​		1.基本介绍
+
+​			官网介绍：https://github.com/alibaba/sentinel/wiki/%E7%83%AD%E7%82%B9%E5%8F%82%E6%95%B0%E9%99%90%E6%B5%81
+
+​			复习：
+
+​				兜底方法：分为`系统默认`和`客户自定义`两种
+
+​				之前的案例中限流出问题后，都是用sentinel系统默认的提示：`Blocked by Sentinel(flow limiting)`
+
+​				我们能不能自定义类似于Hystrix那样，某个方法出问题了就找对应的兜底降级方法？
+
+​			结论：
+
+​				从`@HystrixCommand`到`@SentinelResource`
+
+​			源码：	`com.alibaba.csp.sentinel.slots.block.BlockException`
+
+​	2.参数例外项
+
+​		我们期望某个方法参数是某个特殊值时，它的限流值和平时不一样。
+
+​	3.
+
+​		`@SentinelResource`处理的是Sentinel控制台配置的违规情况，通过`blockHandler`属性配置的方法进行兜底处理
+
+​		`RuntimeException`	`int age = 10 / 0`,这个是java运行时报出的运行时异常RunTimeException，`@SentinelResource`不管
+
+​		总结：`@SentinelResource`主管配置出错，运行出错该走异常走异常
+
+​	7.系统规则
+
+​		1.是什么
+
+​			https://github.com/alibaba/sentinel/wiki/%E7%B3%BB%E7%BB%9F%E8%87%AA%E9%80%82%E5%BA%94%E9%99%90%E6%B5%81
+
+​			系统保护规则是从应用级别的入口流量进行控制，从单台机器的load、CPU使用率、平均RT、入口QPS和并发线程数等几个维度监控应用指标，让系统尽可能跑在最大吞吐量的同时保证系统整体的稳定性。
+
+​			这种配置比较危险，在生产环境中一般由网关负责而不会使用此处功能。
+
+​		2.各项配置参数说明
+
+​			系统保护规则是应用整体维度的，而不是资源维度的，并且**仅对入口流量生效**。入口流量指的是进入应用的流量（`EntryType.IN`），比如 Web 服务或 Dubbo 服务端接收的请求，都属于入口流量。
+
+系统规则支持以下的模式：
+
+- **Load 自适应**（仅对 Linux/Unix-like 机器生效）：系统的 load1 作为启发指标，进行自适应系统保护。当系统 load1 超过设定的启发值，且系统当前的并发线程数超过估算的系统容量时才会触发系统保护（BBR 阶段）。系统容量由系统的 `maxQps * minRt` 估算得出。设定参考值一般是 `CPU cores * 2.5`。
+- **CPU usage**（1.5.0+ 版本）：当系统 CPU 使用率超过阈值即触发系统保护（取值范围 0.0-1.0），比较灵敏。
+- **平均 RT**：当单台机器上所有入口流量的平均 RT 达到阈值即触发系统保护，单位是毫秒。
+- **并发线程数**：当单台机器上所有入口流量的并发线程数达到阈值即触发系统保护。
+- **入口 QPS**：当单台机器上所有入口流量的 QPS 达到阈值即触发系统保护。
+
+​	
+
+​	8.`@SentinelResource`
+
+​		1.面临的问题
+
+​			1.`@SentinelResource`默认的错误处理没有体现我们自己的业务要求
+
+​			2.依照现有条件，我们自定义的降级处理方法又和业务代码耦合在一起，不直观
+
+​			3.每个业务方法都添加一个兜底的降级处理方法，代码膨胀加剧
+
+​			4.全局统一的降级处理方法没有体现。
+
+​		2.自定义限流处理逻辑
+
+​			1.新建全局处理类
+
+```java
+package cn.coreqi.springcloud.myHandler;
+
+import cn.coreqi.springcloud.core.CommonResult;
+import com.alibaba.csp.sentinel.slots.block.BlockException;
+
+public class CustomerBlockHandler {
+
+    public static CommonResult handlerException(BlockException ex){
+        return new CommonResult(444,"按客户自定义,Global HandlerException---------1");
+    }
+
+    public static CommonResult handlerException2(BlockException ex){
+        return new CommonResult(444,"按客户自定义,Global HandlerException---------2");
+    }
+
+}
+```
+
+​			2.在controller 的`@SentinelResource`注解的`blockHandlerClass`属性引用
+
+```java
+    @GetMapping("/rateLimit/customerBlockHandler")
+    @SentinelResource(value = "customerBlockHandler",blockHandlerClass = CustomerBlockHandler.class,blockHandler = "handlerException2")
+    public CommonResult customerBlockHandler(){
+        return new CommonResult(200,"按客户自定义",new Payment(2020L,"serial003"));
+    }
+```
+
+​		3.使用代码控制限流规则（略）
+
+​		4.`@SentinelResource`注解属性说明
+
+​			https://github.com/alibaba/Sentinel/wiki/%E6%B3%A8%E8%A7%A3%E6%94%AF%E6%8C%81
+
+​		5.Sentinel的三个核心Api
+
+​			1.SphU	-	定义资源
+
+​			2.Tracer	-	定义统计
+
+​			3.ContextUtil	-	定义上下文
+
+​	9.Sentinel服务熔断功能
+
+​			Sentinel整合Ribbon + OpenFeign + fallback
+
+​		1.结论
+
+​			`fallback`属性管理运行时异常
+
+​			`blockHandler`管理配置违规
+
+​			推荐同时配置`fallback`和`blockHandler`两个属性
+
+​			若`blockHandler`和`fallback`都进行了配置，则被限流降级而抛出`BlockException`时只会进入`blockHandler`处理逻辑。
+
+​			`exceptionsToIgnore`	排除错误，出现该错误时不会再调用`fallback`属性指定的兜底方法
+
+​		2.整合OpenFeign
+
+​			1.pom
+
+```xml
+        <!--openfeign-->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+```
+
+​			2.在yml中激活Feign对Sentinel的支持
+
+```yml
+#激活Sentinel对Feign的支持
+feign:
+  sentinel:
+    enabled: true
+```
+
+​			3.主启动类添加`@EnableFeignClients`注解
+
+​			4.编写Feign接口
+
+```java
+package cn.coreqi.springcloud.services;
+
+import cn.coreqi.springcloud.core.CommonResult;
+import cn.coreqi.springcloud.entities.Payment;
+import cn.coreqi.springcloud.services.impl.PaymentFallbackService;
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
+@FeignClient(value = "nacos-payment-provider",fallback = PaymentFallbackService.class)
+public interface PaymentService {
+
+    @GetMapping("/paymentSQL/{id}")
+    public CommonResult<Payment> paymentSQL(@PathVariable("id") Long id);
+
+}
+
+```
+
+​			5.编写Feign异常的兜底类
+
+```java
+package cn.coreqi.springcloud.services.impl;
+
+import cn.coreqi.springcloud.core.CommonResult;
+import cn.coreqi.springcloud.entities.Payment;
+import cn.coreqi.springcloud.services.PaymentService;
+import org.springframework.stereotype.Component;
+
+@Component
+public class PaymentFallbackService implements PaymentService {
+    @Override
+    public CommonResult<Payment> paymentSQL(Long id) {
+        return new CommonResult<>(444,"服务降级返回,---PaymentFallbackService",new Payment(id,"errorSerial"));
+    }
+}
+
+```
+
+​			6.控制器中调用
+
+```java
+    //========OpenFeign
+    @Resource
+    private PaymentService paymentService;
+
+    @GetMapping("/consumer/paymentSQL/{id}")
+    public CommonResult<Payment> paymentSQL(@PathVariable("id") Long id){
+        return paymentService.paymentSQL(id);
+    }
+```
+
+​		3.熔断框架比较
+
+|                | Sentinel                                                   | Hystrix                | resilience4j                     |
+| -------------- | ---------------------------------------------------------- | ---------------------- | -------------------------------- |
+| 隔离策略       | 信号量隔离（并发线程数限流）                               | 线程池隔离/信号量隔离  | 信号量隔离                       |
+| 熔断降级策略   | 基于响应时间、异常比例、异常数                             | 基于异常比例           | 基于异常比例、响应时间           |
+| 实时统计实现   | 滑动窗口（LeapArray）                                      | 滑动窗口（基于RxJava） | Ring Bit Buffer                  |
+| 动态规则配置   | 支持多种数据源                                             | 支持多种数据源         | 有限支持                         |
+| 扩展性         | 多个扩展点                                                 | 插件的形式             | 接口的形式                       |
+| 基于注解的支持 | 支持                                                       | 支持                   | 支持                             |
+| 限流           | 基于QPS，支持基于调用关系的限流                            | 有限的支持             | Rate Limiter                     |
+| 流量整形       | 支持预热模式、均速模式、预热排队模式                       | 不支持                 | 简单的Rate Limiter模式           |
+| 系统自适应保护 | 支持                                                       | 不支持                 | 不支持                           |
+| 控制台         | 提供开箱即用的控制台，可配置规则、查看秒级监控、机器发现等 | 简单的监控查看         | 不提供控制台，可对接其他监控系统 |
+
+​	10.Sentinel规则持久化
+
+​		1.为什么？
+
+​			一旦我们重启微服务或者Sentinel，Sentinel规则将会消失，因此生产环境中我们需要将配置规则进行持久化。
+
+​		2.怎么玩？
+
+​			将Sentinel限流配置规则持久化到Nacos中保存，只要刷新8401某个rest地址，sentinel控制台的流控规则就能看到，只要Nacos里面的配置不删除，针对8401上Sentinel上的流控规则持续有效。
+
+​		3.步骤
+
+​			1、添加pom
+
+```xml
+        <!--Spring Cloud Alibaba Sentinel-Datasource-Nacos  做持久化-->
+        <dependency>
+            <groupId>com.alibaba.csp</groupId>
+            <artifactId>sentinel-datasource-nacos</artifactId>
+        </dependency>
+```
+
+​			2.yml添加Nacos数据源配置
+
+```yml
+spring:
+    sentinel:
+      datasource:
+        ds1:
+          nacos:
+            server-addr: localhost:8848
+            dataId: ${spring.application.name}
+            groupId: DEFAULT_GROUP
+            data-type: json
+            rule-type: flow
+```
+
+​			3.Nacos中新建配置
+
+​			DataId和yml文件中同名，类型选择json，内容如下：
+
+```json
+[
+    {
+        "resource":"/rateLimit/byUrl",
+        "limitApp":"default",
+        "grade":1,
+        "count":1,
+        "strategy":0,
+        "controlBehavior":0,
+        "clusterMode":false
+    }
+]
+```
+
+​			resource：资源名称
+
+​			limitApp：来源应用
+
+​			grade：阈值类型，0表示线程数，1表示QPS
+
+​			count：单机阈值
+
+​			strategy：流控模式，0表示直接，1表示关联，2表示链路
+
+​			controlBehavior：流控效果，0表示快速失败，1表示Warm Up，2表示排队等待
+
+​			clusterMode：是否集群
+
+
+
+24.Spring Cloud Alibaba Seata处理分布式事务
+
+​	1.分布式事务问题
+
+​		分布式前：单机单库没有这个问题
+
+​		分布式之后：单体应用被拆分成微服务应用，原来的三个模块被拆分成三个独立的应用，分别使用三个独立的数据源，业务操作需要调用三个服务来完成。此时每个服务内部的数据一致性由本地事务来保证，但是全局的数据一致性问题没法保证。
+
+​		一句话：一次业务操作需要跨多个数据源或需要跨多个系统进行远程调用，就会产生分布式事务问题。
+
+​	2.Seata简介
+
+​		1.是什么
+
+​			Seata是一款开源的分布式事务解决方案，致力于在微服务架构下提供高性能和简单易用的分布式事务服务。
+
+​			官网地址：https://seata.io/zh-cn/
+
+​		2.能干什么
+
+​			一个典型的分布式事务过程：
+
+​				分布式事务处理过程的`1+3`模型：一个Id + 三个组件
+
+​				一个Id：全局事务ID，Transaction ID，XID，全局唯一的事务ID
+
+​				三个组件：1.Transaction Coordinator(TC) 事务协调器，维护全局事务的运行状态，负责协调并驱动全局事务的提交或回滚。
+
+​								  2.Transaction Manager(TM) 控制全局事务的边界，负责开启一个全局事务，并最终发起全局提交或全局回滚的决议。
+
+​								  3.Resource Manager(RM) 控制分支事务，负责分支注册  、状态汇报，并接收事务协调器的指令，驱动分支（本地）事务的提交或回滚。
+
+​			处理过程
+
+​				1.TM向TC申请开启一个全局事务，全局事务创建成功并生成一个全局唯一的XID。
+
+​				2.XID在微服务调用链路的上下文中传播
+
+​				3.RM向TC注册分支事务，将其纳入XID对应全局事务的管辖。
+
+​				4.TM向TC发起针对XID的全局提交或回滚决议
+
+​				5.TC调度XID下管辖的全部分支事务完成提交或回滚请求。
+
+​		3.下载地址
+
+​			https://github.com/seata/seata/releases
+
+​		4.如何使用
+
+​			本地`@Transactional`
+
+​			全局`@GlobalTransactional`
+
+​	3.Seata-Server安装
+
+​		1.下载seata-server-1.1.0.zip解压到指定目录并修改conf目录下的`file.conf`配置文件
+
+​			1.自定义事务组名称
+
+​			2.将事务日志存储模式修改为db（默认为文件，修改为数据库）
+
+​			3.数据库连接信息
+
+​		2.在Mysql中新建库	-	seata
+
+​		3.在新建的库中运行sql命令来创建所需表【看评论说1.0后的版本启动seata后会自动创建数据表】
+
+​			https://github.com/seata/seata/blob/develop/script/server/db/mysql.sql
+
+​		4.修改conf目录下的`registry.conf`配置文件，将seata注册进Nacos
+
+​			指明注册中心为Nacos及修改Nacos连接信息
+
+​		5.启动Nacos	-	8848
+
+​		6.启动seata-server
+
+​			★Mysql8	需要做一些修改 官方说明：https://seata.io/zh-cn/docs/overview/faq.html
+
+​			1.下载Mysql8 Connector：https://dev.mysql.com/downloads/file/?id=492426
+
+​			2.将Mysql8 Connector压缩包中的mysql-connector-java-8.0.xx.jar复制到seata\lib下，删除Mysql5的Connector Jar包
+
+​			3.修改`file.conf`配置
+
+​				`driverClassName = "com.mysql.cj.jdbc.Driver"`
+
+​				`url = "jdbc:mysql://127.0.0.1:3306/seata?useUnicode=true&characterEncoding=UTF-8&zeroDateTimeBehavior=convertToNull&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true"`
+
+​	4.案例模拟
+
+​		1.业务说明
+
+​			这里我们会创建三个服务，一个订单服务，一个库存服务，一个账户服务。
+
+​			当用户下单时，会在订单服务中创建一个订单，然后通过远程调用库存服务来扣减下单商品的库存，在通过远程调用账户服务来扣减用户账户里面的余额，最后在订单服务中修改订单状态为已完成
+
+​			该操作跨越三个数据库，有两次远程调用，很明显会有分布式事务问题。
+
+​			一句话：下订单	->	扣库存	->	减账户（余额）
+
+​		2.创建业务数据库
+
+​			1.seata_order：存储订单的数据库
+
+```sql
+CREATE DATABASE seata_order;
+```
+
+​				t_order表
+
+```sql
+CREATE TABLE t_order(
+    `id` BIGINT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `user_id` BIGINT(11) DEFAULT NULL COMMENT '用户名id',
+    `product_id` BIGINT(11) DEFAULT NULL COMMENT '产品id',
+    `count` INT(11) DEFAULT NULL COMMENT '数量',
+    `money` DECIMAL(11,0) DEFAULT NULL COMMENT '金额',
+    `status` INT(1) DEFAULT NULL COMMENT '订单状态：0：创建中；1：已完结'
+)ENGINE=INNODB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8;
+```
+
+​			2.seata_storage：存储库存的数据库
+
+```sql
+CREATE DATABASE seata_storage;
+```
+
+​				t_storage表
+
+```sql
+CREATE TABLE t_storage(
+    `id` BIGINT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `product_id` BIGINT(11) DEFAULT NULL COMMENT '产品id',
+    `total` INT(11) DEFAULT NULL COMMENT '总库存',
+    `used` INT(11) DEFAULT NULL COMMENT '已用库存',
+    `residue` INT(11) DEFAULT NULL COMMENT '剩余库存'
+)ENGINE=INNODB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
+
+INSERT INTO seata_storage.t_storage(`id`,`product_id`,`total`,`used`,`residue`) VALUES('1','1','100','0','100')
+```
+
+​			3.seata_account：存储账户信息的数据库
+
+```sql
+CREATE DATABASE seata_account;
+```
+
+​				t_account表
+
+```sql
+CREATE TABLE t_account(
+    `id` BIGINT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT 'id',
+    `user_id` BIGINT(11) DEFAULT NULL COMMENT '用户id',
+    `total` DECIMAL(10,0) DEFAULT NULL COMMENT '总额度',
+    `used` DECIMAL(10,0) DEFAULT NULL COMMENT '已用额度',
+    `residue` DECIMAL(10,0) DEFAULT '0' COMMENT '剩余可用额度'
+)ENGINE=INNODB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
+
+INSERT INTO seata_account.t_account(`id`,`user_id`,`total`,`used`,`residue`) VALUES('1','1','1000','0','1000')
+```
+
+​		3.为业务数据库`分别`创建对应的回滚日志记录表
+
+​			https://github.com/seata/seata/blob/develop/script/client/at/db/mysql.sql
+
+​		4.编写代码
+
+​		5.一些补充
+
+​			1.Seata
+
+​				2019年1月份蚂蚁金服和阿里巴巴共同开源的分布式事务解决方案
+
+​				Seata全称Simple Extensible Autonomous Transaction Architecture，简单可扩展自治事务框架
+
+​			2.TC/TM/RM三大组件
+
+​				TC	-	seata-server
+
+​				TM	-	标注了`GlobalTransactional`就是事务的发起方
+
+​				RM	-	模块的数据库
+
+​			3.分布式事务的执行流程
+
+​				1.TM 开启分布式事务（TM向TC注册全局事务记录）；
+
+​				2.按业务场景，编排数据库、服务等事务内资源（RM向TC汇报资源准备状态）；
+
+​				3.TM结束分布式事务，事务一阶段结束（TM通知TC提交/回滚分布式事务）；
+
+​				4.TC汇总事务信息，决定分布式事务是提交还是回滚。
+
+​				5.TC通过所有RM提交/回滚资源，事务二阶段结束。
+
+​			4.AT模式如何做到对业务的无侵入
+
+​				AT模式，在阿里云叫做GTS。
+
+​				1.是什么
+
+​					前提
+
+​						基于支持本地 ACID 事务的关系型数据库。
+
+​						Java 应用，通过 JDBC 访问数据库。
+
+## 			整体机制
+
+​			两阶段提交协议的演变：
+
+- 一阶段：业务数据和回滚日志记录在同一个本地事务中提交，释放本地锁和连接资源。
+- 二阶段：
+  - 提交异步化，非常快速地完成。
+  - 回滚通过一阶段的回滚日志进行反向补偿。
+
+1、一阶段加载
+
+在一阶段，seata会拦截"业务sql"，
+
+1.解析sql语义，找到“业务sql”要更新的业务数据，在业务数据被更新前，将其保存成“before image”【俗称前置镜像】，
+
+2.执行“业务sql”更新业务数据，在业务数据更新之后
+
+3.其保存成“after image”，最后生成行锁
+
+以上操作全部在一个数据库事务内完成，这样保证了一阶段操作的原子性
+
+2、二阶段提交【正常情况】
+
+​	二阶段如果是顺利提交的话，因为“业务sql”在一阶段已经提交到数据库，所以seata框架只需将一阶段保存的快照数据和行锁删掉，完成数据清理即可。
+
+2、二阶段回滚【异常情况】
+
+​	二阶段如果是回滚的话，seata就需要回滚一阶段已经执行的“业务sql”，还原业务数据。
+
+​	回滚方式便是用“before image”还原业务数据；但在还原前要首先校验脏写，对比“数据库当前业务数据”和“after image”，如果两份数据完全一致就说明没有脏写，可以还原数据，如果不一致就说明有脏写，出现脏写就需要转人工处理。
+
+
+
+
+
+
+
+
+
+​				
+
+​				
+
+
+
+
+
+
+
+
+
+
+
+
+
+​			
+
+
+
+​		
+
+
+
+
+
+​		
+
+
+
+
+
+
+
+
+
+​				
+
+​		
 
 ​				
 
