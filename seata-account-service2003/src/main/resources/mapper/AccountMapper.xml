@@ -15,6 +15,6 @@
             t_account
         SET residue = residue - #{money},used = used + #{money}
         WHERE
-            user_id = #{user_id}
+            user_id = #{userId}
     </update>
 </mapper>

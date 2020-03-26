@@ -2,7 +2,7 @@ package cn.coreqi.springcloud.alibaba.controller;
 
 import cn.coreqi.springcloud.alibaba.domain.CommonResult;
 import cn.coreqi.springcloud.alibaba.services.StorageService;
-import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
@@ -19,7 +19,7 @@ public class StorageController {
      * @param count
      * @return
      */
-    @GetMapping("/storage/decrease")
+    @PostMapping("/storage/decrease")
     public CommonResult decrease(Long productId, Integer count){
         storageService.decrease(productId,count);
         return new CommonResult(200,"扣减库存成功！");

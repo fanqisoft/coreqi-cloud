@@ -2,7 +2,7 @@ package cn.coreqi.springcloud.alibaba.controller;
 
 import cn.coreqi.springcloud.alibaba.domain.CommonResult;
 import cn.coreqi.springcloud.alibaba.services.AccountService;
-import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -21,7 +21,7 @@ public class AccountController {
      * @param money
      * @return
      */
-    @GetMapping("/account/decrease")
+    @PostMapping("/account/decrease")
     public CommonResult decrease(@RequestParam("userId") Long userId, @RequestParam("money") BigDecimal money){
         accountService.decrease(userId,money);
         return new CommonResult(200,"扣减账户余额成功！");
